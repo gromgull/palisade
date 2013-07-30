@@ -45,7 +45,7 @@ def gen_rest_clients(SERVICE_BASE_URL='http://127.0.0.1:5000/api'):
 
     SERVICE_BASE_URL: the base url of the remote service
     returns: a tuple of the auth functions (
-        init_login(provider, callback_endpoint, **kwargs) : (redirect_url, session_cookie), 
+        init_login(provider, callback_endpoint, **kwargs) : (redirect_url, session_cookie),
         verfify_login(provider, query_string, session_cookie) : (user, session_cookie)
     )
     """
@@ -57,12 +57,12 @@ def gen_rest_clients(SERVICE_BASE_URL='http://127.0.0.1:5000/api'):
         verify_url: the url the service should redirect to, if left as None the service will use
                     it's default which just returns a blank page
         returns: a tuple containing (
-            the autorisation redirect url, 
+            the autorisation redirect url,
             the session cookie to give to `verify_login()`
         )
         """
         r = urllib3.PoolManager().request(
-            'GET', 
+            'GET',
             '{0}/login/{1}/init/?oauth_callback={2}'.format(SERVICE_BASE_URL, provider, verify_url))
         json = simplejson.loads(r.data)
         if 'redirect' not in json:
@@ -85,7 +85,7 @@ def gen_rest_clients(SERVICE_BASE_URL='http://127.0.0.1:5000/api'):
             abort(400, message="no session set")
         headers = {'cookie': session_cookie}
         r = urllib3.PoolManager().request(
-            'GET', 
+            'GET',
             '{0}/login/{1}/verify/?{2}'.format(BASE_URL, provider, query_string),
             headers=headers)
         json = simplejson.loads(r.data)

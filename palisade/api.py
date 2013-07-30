@@ -34,7 +34,7 @@ def verify_login(provider, oauth_verifier=None, code=None, error=None, **unused_
         args['code'] = code
     else:
         abort(400, error='login to requires `oauth_verifier` or `code` argument')
-    
+
     try:
         profile = prov.verify(**args)
         return profile
