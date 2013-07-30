@@ -1,7 +1,9 @@
 from functools import wraps
+from datetime import datetime
 from flask import session, request, redirect as flask_redirect, url_for
 from werkzeug.exceptions import HTTPException
 from . import api
+from .providers import PROVIDERS
 
 def require_login(logged_in_key, redirect_endpoint, **redirect_kwargs):
     def d0(fn):
@@ -9,6 +11,11 @@ def require_login(logged_in_key, redirect_endpoint, **redirect_kwargs):
         def d1(*args, **kwargs):
             if session.get(logged_in_key) is None:
                 return flask_redirect(url_for(redirect_endpoint, **redirect_kwargs))
+
+            if datetime.now()>session['oauth_token_expires']:
+                prov = PROVIDERS[session['oauth_provider']]
+                prov.refresh()
+
             return fn(*args, **kwargs)
         return d1
     return d0
@@ -38,6 +45,17 @@ def verify_login(fn):
         return fn(profile)
     return d1
 
+def with_session(fn):
+    @wraps(fn)
+    def d1(*args,**kwargs):
+        prov = session['oauth_provider']
+        if datetime.now()>session['oauth_token_expires']:
+            prov.refresh()
+
+        oauth_session = session['oauth_provider'].service.get_session(session['oauth_token'])
+        return fn(*args, oauth_session=oauth_session, **kwargs)
+
+    return d1
 
 def gen_rest_clients(SERVICE_BASE_URL='http://127.0.0.1:5000/api'):
     """Generates functions for accessing the init_login and verify_login functions via REST (using urllib3)

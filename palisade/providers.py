@@ -3,6 +3,7 @@ from rauth.service import parse_utf8_qsl
 from flask import session, current_app
 import re
 import sys
+from datetime import datetime, timedelta
 
 # TODO: better way to do this ...
 import palisade.settings# as settings
@@ -140,17 +141,55 @@ class OAuth2Service(OAuthServiceWrapper):
         return self.service.get_authorize_url(redirect_uri=redirect_uri, **self.authorize_kwargs)
 
     def verify(self, code, **kwargs):
-        key = {
+        params = {
             'code': code,
             'redirect_uri': session.pop('oauth2_redirect_uri', None)
         }
-        key.update(self.access_token_kwargs)
-        token = self.service.get_access_token(
-            method='GET', decoder=self.decoder, params=key
+        params.update(self.access_token_kwargs)
+        response = self.service.get_raw_access_token(
+            method='GET', params=params
         )
-        current_app.logger.info('Got token %s'%token)
+        response.raise_for_status()
+        response = self.decoder(response.content)
+
+        expires = response['expires_in']
+        token = response['access_token']
+
+        if 'refresh_token' in response:
+            session['oauth_refresh_token'] = response['refresh_token']
+
+        session['oauth_token_expires']=datetime.now()+timedelta(seconds=expires)
         session['oauth_token'] = token
+        session['oauth_provider'] = self.name
         return self.get_user_profile(token)
+
+    def refresh(self):
+        if 'oauth_refresh_token' not in session:
+            raise Exception('No refresh-token in session, cannot refresh')
+
+        params = {
+            'refresh_token': session['oauth_refresh_token'],
+        }
+        params.update(self.access_token_kwargs)
+        params['grant_type']='refresh_token'
+
+        response = self.service.get_raw_access_token(
+            method='GET', params=params
+        )
+        response.raise_for_status()
+        response = self.decoder(response.content)
+
+        expires = response['expires_in']
+        token = response['access_token']
+
+        if 'refresh_token' in response:
+            session['oauth_refresh_token'] = response['refresh_token']
+
+        session['oauth_token_expires']=datetime.now()+timedelta(seconds=expires)
+        session['oauth_token'] = token
+
+        return True
+
 
 PROVIDERS = {}
 PROVIDERS['twitter'] = {
